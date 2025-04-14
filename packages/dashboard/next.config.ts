@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "export",
   webpack: (config, { isServer }) => {
     // Allow import.meta in CommonJS modules
     config.module.rules.push({
