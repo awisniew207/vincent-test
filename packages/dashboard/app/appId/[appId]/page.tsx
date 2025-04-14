@@ -18,8 +18,9 @@ import { mapEnumToTypeName } from '@/services/types';
 import { useErrorPopup } from '@/providers/error-popup';
 import { StatusMessage } from '@/utils/statusMessage';
 
-export default function AppDetailPage({ params }: { params: { appId: string } }) {
-  const { appId } = params;
+export default function AppDetailPage() {
+  const params = useParams();
+  const appId = params?.appId as string;
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const { showError } = useErrorPopup();
@@ -52,7 +53,7 @@ export default function AppDetailPage({ params }: { params: { appId: string } })
       setIsLoading(false);
     }
   }, [address, appId, router, showError]);
-
+  
   useEffect(() => {
     if (isConnected) {
       loadAppData();
