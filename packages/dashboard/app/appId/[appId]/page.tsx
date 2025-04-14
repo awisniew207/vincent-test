@@ -18,26 +18,7 @@ import { mapEnumToTypeName } from '@/services/types';
 import { useErrorPopup } from '@/providers/error-popup';
 import { StatusMessage } from '@/utils/statusMessage';
 
-// Add this function before the page component
-export async function generateStaticParams() {
-  // For static export, we need to return an array of all possible app IDs
-  // Since we don't know all possible app IDs at build time, we'll return an empty array
-  // This means the page will be generated at runtime
-  return [];
-}
-
-// Add this function to fetch data at build time
-async function getAppData(appId: string) {
-  try {
-    const response = await formCompleteVincentAppForDev(appId);
-    return response;
-  } catch (error) {
-    console.error('Error fetching app data:', error);
-    return null;
-  }
-}
-
-export default async function AppDetailPage({ params }: { params: { appId: string } }) {
+export default function AppDetailPage({ params }: { params: { appId: string } }) {
   const { appId } = params;
   const router = useRouter();
   const { address, isConnected } = useAccount();
@@ -47,23 +28,6 @@ export default async function AppDetailPage({ params }: { params: { appId: strin
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
   
-  // Fetch data at build time
-  const initialData = await getAppData(appId);
-
-  useEffect(() => {
-    if (initialData) {
-      // Find the specific app by appId
-      const foundApp = initialData.find(app => app.appId && app.appId.toString() === appId);
-      if (foundApp) {
-        setAppData(foundApp);
-      }
-      setIsLoading(false);
-    } else {
-      // If no initial data, try to fetch it at runtime
-      loadAppData();
-    }
-  }, [initialData]);
-
   const loadAppData = useCallback(async () => {
     if (!address || !appId) return;
     
@@ -88,7 +52,7 @@ export default async function AppDetailPage({ params }: { params: { appId: strin
       setIsLoading(false);
     }
   }, [address, appId, router, showError]);
-  
+
   useEffect(() => {
     if (isConnected) {
       loadAppData();
