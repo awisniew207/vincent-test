@@ -18,61 +18,76 @@ import { mapEnumToTypeName } from '@/services/types';
 import { useErrorPopup } from '@/providers/error-popup';
 import { StatusMessage } from '@/utils/statusMessage';
 
-export default function AppDetailPage() {
-  const params = useParams();
-  const appIdParam = params.appId;
+// Add this function before the page component
+export async function generateStaticParams() {
+  // For static export, we need to return an array of all possible app IDs
+  // Since we don't know all possible app IDs at build time, we'll return an empty array
+  // This means the page will be generated at runtime
+  return [];
+}
+
+// Add this function to fetch data at build time
+async function getAppData(appId: string) {
+  try {
+    const response = await formCompleteVincentAppForDev(appId);
+    return response;
+  } catch (error) {
+    console.error('Error fetching app data:', error);
+    return null;
+  }
+}
+
+export default async function AppDetailPage({ params }: { params: { appId: string } }) {
+  const { appId } = params;
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const [app, setApp] = useState<AppView | null>(null);
+  const { showError } = useErrorPopup();
+  const [appData, setAppData] = useState<AppView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
   
-  // Add the error popup hook
-  const { showError } = useErrorPopup();
-  
-  // Helper function to set status messages
-  const showStatus = useCallback((message: string, type: 'info' | 'warning' | 'success' | 'error' = 'info') => {
-    setStatusMessage(message);
-    setStatusType(type);
-  }, []);
-  
-  // Create enhanced error function that shows both popup and status error
-  const showErrorWithStatus = useCallback((errorMessage: string, title?: string, details?: string) => {
-    // Show error in popup
-    showError(errorMessage, title || 'Error', details);
-    // Also show in status message
-    showStatus(errorMessage, 'error');
-  }, [showError, showStatus]);
-  
+  // Fetch data at build time
+  const initialData = await getAppData(appId);
+
+  useEffect(() => {
+    if (initialData) {
+      // Find the specific app by appId
+      const foundApp = initialData.find(app => app.appId && app.appId.toString() === appId);
+      if (foundApp) {
+        setAppData(foundApp);
+      }
+      setIsLoading(false);
+    } else {
+      // If no initial data, try to fetch it at runtime
+      loadAppData();
+    }
+  }, [initialData]);
+
   const loadAppData = useCallback(async () => {
-    if (!address || !appIdParam) return;
+    if (!address || !appId) return;
     
     try {
       setIsLoading(true);
-      const appData = await formCompleteVincentAppForDev(address);
-      
-      if (appData && appData.length > 0) {
+      const response = await formCompleteVincentAppForDev(appId);
+      if (response && response.length > 0) {
         // Find the specific app by appId
-        const foundApp = appData.find(app => app.appId && app.appId.toString() === appIdParam);
+        const foundApp = response.find(app => app.appId && app.appId.toString() === appId);
         if (foundApp) {
-          setApp(foundApp);
+          setAppData(foundApp);
         } else {
           // If app not found, navigate back to dashboard
           router.push('/');
         }
-      } else {
-        // If no apps found, navigate back to dashboard
-        router.push('/');
       }
     } catch (error) {
       console.error("Error loading app data:", error);
-      showErrorWithStatus("Failed to load app data", "Error");
+      showError('Failed to load app data');
       router.push('/');
     } finally {
       setIsLoading(false);
     }
-  }, [address, appIdParam, router, showErrorWithStatus]);
+  }, [address, appId, router, showError]);
   
   useEffect(() => {
     if (isConnected) {
@@ -93,7 +108,7 @@ export default function AppDetailPage() {
     );
   }
   
-  if (!app) {
+  if (!appData) {
     return null;
   }
   
@@ -110,12 +125,12 @@ export default function AppDetailPage() {
           >
             <ArrowRight className="h-4 w-4 rotate-180" />
           </Button>
-          <h1 className="text-3xl font-bold text-black">{app.appName}</h1>
+          <h1 className="text-3xl font-bold text-black">{appData.appName}</h1>
         </div>
         <div className="flex gap-2 items-center">
           <Button
             variant="default"
-            onClick={() => router.push(`/appId/${app.appId}/delegatee`)}
+            onClick={() => router.push(`/appId/${appData.appId}/delegatee`)}
             className="text-black"
           >
             <Plus className="h-4 w-4 mr-2 font-bold text-black" />
@@ -123,7 +138,7 @@ export default function AppDetailPage() {
           </Button>
           <Button
             variant="default"
-            onClick={() => router.push(`/appId/${app.appId}/tool-policies`)}
+            onClick={() => router.push(`/appId/${appData.appId}/tool-policies`)}
             className="text-black"
           >
             <Plus className="h-4 w-4 mr-2 font-bold text-black" />
@@ -131,7 +146,7 @@ export default function AppDetailPage() {
           </Button>
           <Button
             variant="default"
-            onClick={() => router.push(`/appId/${app.appId}/advanced-functions`)}
+            onClick={() => router.push(`/appId/${appData.appId}/advanced-functions`)}
             className="text-black"
           >
             <Settings className="h-4 w-4 mr-2 font-bold text-black" />
@@ -144,16 +159,16 @@ export default function AppDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-black">App Details</CardTitle>
-            <CardDescription className="text-black">{app.description}</CardDescription>
+            <CardDescription className="text-black">{appData.description}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="text-sm text-black">
-                <span className="font-medium">App ID:</span> {app.appId}
+                <span className="font-medium">App ID:</span> {appData.appId}
               </div>
               <div className="text-sm text-black">
                 <span className="font-medium">Management Wallet:</span>{' '}
-                {app.managementWallet}
+                {appData.managementWallet}
               </div>
             </div>
           </CardContent>
@@ -163,13 +178,13 @@ export default function AppDetailPage() {
           <CardHeader>
             <CardTitle className="text-black">Tool Policies</CardTitle>
             <CardDescription className="text-black">
-              {app.toolPolicies.length === 0
+              {appData.toolPolicies.length === 0
                 ? 'No tool policies configured yet.'
-                : `${app.toolPolicies.length} app versions with tool policies`}
+                : `${appData.toolPolicies.length} app versions with tool policies`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {app.toolPolicies.length === 0 ? (
+            {appData.toolPolicies.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-sm text-black">
                   No Tool Policies Yet
@@ -178,7 +193,7 @@ export default function AppDetailPage() {
             ) : (
               <div className="space-y-4">
                 {(() => {
-                  return [...app.toolPolicies]
+                  return [...appData.toolPolicies]
                   .sort((a, b) => {            
                     // Handle the array-object hybrid format
                     const versionA = a.version || (a[0] ? a[0] : 0);
@@ -280,13 +295,13 @@ export default function AppDetailPage() {
           <CardHeader>
             <CardTitle className="text-black">Delegatees</CardTitle>
             <CardDescription className="text-black">
-              {app.delegatees.length === 0
+              {appData.delegatees.length === 0
                 ? 'No delegatees configured yet.'
-                : `${app.delegatees.length} delegatees configured`}
+                : `${appData.delegatees.length} delegatees configured`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!app.delegatees || !Array.isArray(app.delegatees) || app.delegatees.length === 0 ? (
+            {!appData.delegatees || !Array.isArray(appData.delegatees) || appData.delegatees.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-sm text-black">
                   Add delegatees to execute your application
@@ -294,7 +309,7 @@ export default function AppDetailPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {app.delegatees.map((delegatee, i) => (
+                {appData.delegatees.map((delegatee, i) => (
                   <div key={i} className="text-sm text-black">
                     <code className="bg-gray-50 px-1 py-0.5 rounded text-xs">{delegatee}</code>
                   </div>
