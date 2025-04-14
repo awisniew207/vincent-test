@@ -1,9 +1,0 @@
-[build]
-  command = "nx run dashboard:build"
-  publish = "out"
-
-[build.environment]
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs" 
